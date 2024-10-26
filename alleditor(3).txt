@@ -1,0 +1,80 @@
+<!-- pendingRequests.jsp -->
+<%@ page session="true" %>
+<%@ page import="java.sql.*, javax.servlet.http.*, java.util.*" %>
+<%
+    HttpSession session = request.getSession();
+    String role = (String) session.getAttribute("role");
+
+    // Redirect if not a Manager
+    if (role == null || !role.equals("Manager")) {
+        response.sendRedirect("login.jsp");
+        return;
+    }
+
+    List<Map<String, String>> requests = new ArrayList<>();
+    try (Connection connection = DBConnection.getConnection()) {
+        String sql = "SELECT * FROM requests WHERE status = 'Pending'";
+        PreparedStatement statement = connection.prepareStatement(sql);
+        ResultSet resultSet = statement.executeQuery();
+        
+        while (resultSet.next()) {
+            Map<String, String> request = new HashMap<>();
+            request.put("username", resultSet.getString("username"));
+            request.put("software_name", resultSet.getString("software_name"));
+            request.put("access_type", resultSet.getString("access_type"));
+            request.put("reason", resultSet.getString("reason"));
+            request.put("id", resultSet.getString("id")); // Get request ID for approval/rejection
+            requests.add(request);
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pending Requests</title>
+</head>
+<body>
+    <h2>Pending Access Requests</h2>
+    <table border="1">
+        <tr>
+            <th>Employee Name</th>
+            <th>Software Name</th>
+            <th>Access Type</th>
+            <th>Reason</th>
+            <th>Action</th>
+        </tr>
+        <%
+            for (Map<String, String> request : requests) {
+        %>
+            <tr>
+                <td><%= request.get("username") %></td>
+                <td><%= request.get("software_name") %></td>
+                <td><%= request.get("access_type") %></td>
+                <td><%= request.get("reason") %></td>
+                <td>
+                    <form action="ApprovalServlet" method="post" style="display:inline;">
+                        <input type="hidden" name="requestId" value="<%= request.get("id") %>">
+                        <input type="submit" name="action" value="Approve">
+                    </form>
+                    <form action="ApprovalServlet" method="post" style="display:inline;">
+                        <input type="hidden" name="requestId" value="<%= request.get("id") %>">
+                        <input type="submit" name="action" value="Reject">
+                    </form>
+                </td>
+            </tr>
+        <%
+            }
+            if (requests.isEmpty()) {
+        %>
+            <tr>
+                <td colspan="5">No pending requests.</td>
+            </tr>
+        <%
+            }
+        %>
+    </table>
+</body>
+</html>
+
